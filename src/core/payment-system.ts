@@ -114,7 +114,23 @@ export class PaymentSystem {
             let invoiceData: InvoiceData;
             let paymentPlan: PaymentPlan;
             
-            // 1. 請求書解析
+            // ========== STEP 1: ルールコミット ==========
+            console.log('\n' + '-'.repeat(50));
+            console.log('🔐 STEP 1: ルールコミット開始');
+            console.log('-'.repeat(50));
+            this.sendLog(processId, 'commit', 'active', 'ルールをオンチェーンにコミット中...');
+            
+            // まずルールコミットを実行してハッシュを取得
+            const commitResult = await this.ruleManager.commitRules(userRules);
+            const ruleHash = commitResult.ruleHash;
+            
+            await this.db.saveProcessingLog(processId, 'rule_committed', commitResult);
+            this.sendLog(processId, 'commit', 'completed', `ルールコミット完了 (ハッシュ: ${ruleHash.substring(0, 10)}...)`, { commitResult });
+            
+            // ========== STEP 2: 請求書解析 ==========
+            console.log('\n' + '-'.repeat(50));
+            console.log('🔍 STEP 2: 請求書解析開始');
+            console.log('-'.repeat(50));
             this.sendLog(processId, 'parse', 'active', '請求書解析を開始しています...');
             
             if (input.type === 'pdf' && input.path) {
@@ -129,14 +145,16 @@ export class PaymentSystem {
             await this.db.saveProcessingLog(processId, 'invoice_parsed', invoiceData);
             this.sendLog(processId, 'parse', 'completed', `請求書解析完了 (信頼度: ${invoiceData.confidence})`, { invoiceData });
 
-            // 2. 支払い計画立案
+            // ========== STEP 3: ZKP証明生成 ==========
+            console.log('\n' + '-'.repeat(50));
+            console.log('🔐 STEP 3: ZKP証明生成開始');
+            console.log('-'.repeat(50));
             this.sendLog(processId, 'plan', 'active', '支払い計画を立案中...');
             paymentPlan = await this.paymentPlanner.createPaymentPlan(invoiceData, userRules) as PaymentPlan;
             
             await this.db.saveProcessingLog(processId, 'payment_planned', paymentPlan);
             this.sendLog(processId, 'plan', 'completed', `支払い計画完了: ${paymentPlan.amount} USDC → ${paymentPlan.toAddress}`, { paymentPlan });
 
-            // 3. ZKP証明生成（ルール違反チェックを含む）
             this.sendLog(processId, 'zkp', 'active', 'ゼロ知識証明を生成中...');
             const zkpResult = await this.zkpProver.generatePaymentProof(paymentPlan, userRules);
             
@@ -145,38 +163,30 @@ export class PaymentSystem {
                 proofHash: this.hashProof(zkpResult.proof)
             });
 
-            // ZKP証明結果の詳細チェック（circom回路の出力順序に合わせて修正）
-            const violationSignals = zkpResult.publicSignals;
-            const isOverallValid = violationSignals[0] === '1';  // isValid
-            const isAddressValid = violationSignals[1] === '1';  // addressValid
-            const isAmountValid = violationSignals[2] === '1';   // amountValid
-            const isTimeValid = violationSignals[3] === '1';     // timeValid
+            this.sendLog(processId, 'zkp', 'completed', `ZKP証明生成完了 (公開シグナル: [${zkpResult.publicSignals.join(', ')}])`, { zkpResult });
 
-            if (!zkpResult.isValid || !isOverallValid) {
-                console.log('ZKP証明によりルール違反検出');
+            // ZKP証明によりルール違反が検出された場合、処理を停止
+            if (!zkpResult.isValid) {
+                console.log('\n' + '-'.repeat(30));
+                console.log('❌ ZKP証明: ルール違反検出');
+                console.log('-'.repeat(30));
                 
-                // 違反詳細を分析
-                const violations = [];
-                if (!isAddressValid) violations.push('アドレス未許可');
-                if (!isAmountValid) violations.push('金額上限超過');
-                if (!isTimeValid) violations.push('時間制約違反');
-                
-                this.sendLog(processId, 'zkp', 'failed', `ZKP証明: ルール違反検出 (${violations.join(', ')})`, {
-                    violationSignals,
-                    violations,
-                    zkpResult
+                const violations = this.interpretViolationSignals(zkpResult.publicSignals);
+                this.sendLog(processId, 'zkp', 'failed', `ZKP証明: ルール違反検出 (${violations.join(', ')})`, { 
+                    violationSignals: zkpResult.publicSignals,
+                    violations: violations,
+                    zkpResult: zkpResult
                 });
                 
+                // 処理を停止して結果を返す
                 return {
                     success: false,
-                    status: 'zkp_failed' as const,
+                    status: 'rule_violation' as const,
                     processId: processId,
-                    invoiceData: invoiceData,
                     paymentPlan: paymentPlan,
-                    zkpProof: {
+                    zkpResult: {
                         isValid: false,
-                        verified: false,
-                        publicSignals: violationSignals,
+                        publicSignals: zkpResult.publicSignals,
                         violations: violations
                     },
                     message: `ZKP証明によりルール違反が検出されました: ${violations.join(', ')}`,
@@ -184,19 +194,10 @@ export class PaymentSystem {
                 } as any;
             }
 
-            this.sendLog(processId, 'zkp', 'completed', `ZKP証明生成完了 (公開シグナル: [${zkpResult.publicSignals.join(', ')}])`, { zkpResult });
-
-            // 4. オンチェーンZKP証明検証
-            this.sendLog(processId, 'commit', 'active', 'ルールをオンチェーンにコミット中...');
-            
-            // まずルールコミットを実行してハッシュを取得
-            const commitResult = await this.ruleManager.commitRules(userRules);
-            const ruleHash = commitResult.ruleHash;
-            
-            await this.db.saveProcessingLog(processId, 'rule_committed', commitResult);
-            this.sendLog(processId, 'commit', 'completed', `ルールコミット完了 (ハッシュ: ${ruleHash.substring(0, 10)}...)`, { commitResult });
-            
-            // オンチェーンZKP検証
+            // ========== STEP 4: オンチェーン検証 ==========
+            console.log('\n' + '-'.repeat(50));
+            console.log('⛓️ STEP 4: オンチェーン検証開始');
+            console.log('-'.repeat(50));
             this.sendLog(processId, 'verify', 'active', 'オンチェーンでZKP証明を検証中...');
             const onChainVerification = await this.onChainZKPVerifier.verifyProofOnChain(
                 zkpResult.proof,
@@ -252,7 +253,10 @@ export class PaymentSystem {
                 });
             }
 
-            // 5. 支払い実行
+            // ========== STEP 5: USDC支払い実行 ==========
+            console.log('\n' + '-'.repeat(50));
+            console.log('💰 STEP 5: USDC支払い実行開始');
+            console.log('-'.repeat(50));
             this.sendLog(processId, 'payment', 'active', `USDC支払いを実行中... (${paymentPlan.amount} USDC → ${paymentPlan.toAddress.substring(0, 10)}...)`);
             const paymentResult = await this.paymentExecutor.executePayment(paymentPlan);
             
@@ -267,8 +271,12 @@ export class PaymentSystem {
                 this.sendLog(processId, 'payment', 'failed', `支払い失敗: ${paymentResult.error}`);
             }
 
-            // 6. 結果保存
-            const finalResult = {
+            // ========== STEP 8: 結果保存・完了 ==========
+            console.log('\n' + '-'.repeat(30));
+            console.log('✅ 全処理完了');
+            console.log('-'.repeat(30));
+
+            return {
                 success: paymentResult.success,
                 status: paymentResult.success ? 'completed' as const : 'payment_failed' as const,
                 processId: processId,
@@ -288,11 +296,6 @@ export class PaymentSystem {
                 paymentResult: paymentResult,
                 timestamp: Math.floor(Date.now() / 1000)
             };
-
-            await this.db.savePaymentRecord(finalResult);
-
-
-            return finalResult;
 
         } catch (error) {
             console.error('支払い処理エラー:', error);
@@ -497,5 +500,19 @@ export class PaymentSystem {
         }
         
         return signals;
+    }
+
+    /**
+     * ZKP公開シグナルから違反内容を解釈
+     */
+    private interpretViolationSignals(publicSignals: string[]): string[] {
+        const violations = [];
+        
+        // [isValid, addressValid, amountValid, timeValid]
+        if (publicSignals[1] === '0') violations.push('アドレス未許可');
+        if (publicSignals[2] === '0') violations.push('金額上限超過');
+        if (publicSignals[3] === '0') violations.push('時間制約違反');
+        
+        return violations;
     }
 } 
