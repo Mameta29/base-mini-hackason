@@ -65,7 +65,7 @@ async function runTests() {
         const testRules = {
             allowedAddresses: ['0x1234567890123456789012345678901234567890'],
             maxAmount: 100,
-            allowedHours: [9, 18]
+            allowedHours: [9, 18] as [number, number]
         };
 
         const hash1 = ruleManager.hashRules(testRules);
@@ -106,9 +106,9 @@ async function runTests() {
         };
 
         const userRules = {
-            allowedAddresses: ["0x1234567890123456789012345678901234567890"],
+            allowedAddresses: ['0xF2431b618B5b02923922c525885DBfFcdb9DE853'],
             maxAmount: 100,
-            allowedHours: [9, 18]
+            allowedHours: [9, 18] as [number, number]
         };
 
         const compliance = await planner.checkRuleCompliance(invoiceData, userRules);
