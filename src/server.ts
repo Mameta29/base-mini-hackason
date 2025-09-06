@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import multer from 'multer';
 import path from 'path';
 import { PaymentSystem } from './core/payment-system.js';
 import type { Request, Response } from 'express';
@@ -80,21 +79,6 @@ app.use(express.static('public'));
 app.set('json replacer', (key: string, value: any) => 
     typeof value === 'bigint' ? value.toString() : value
 );
-
-// ファイルアップロード設定
-const upload = multer({
-    dest: 'uploads/',
-    fileFilter: (req, file, cb) => {
-        if (file.mimetype === 'application/pdf') {
-            cb(null, true);
-        } else {
-            cb(new Error('PDFファイルのみアップロード可能です'));
-        }
-    },
-    limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB
-    }
-});
 
 // システム初期化
 let paymentSystem: PaymentSystem;
@@ -288,45 +272,6 @@ app.post('/api/payment/text', async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error('テキスト支払い処理エラー:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
-});
-
-// ルート: PDF支払い処理
-app.post('/api/payment/pdf', upload.single('invoice'), async (req: Request, res: Response) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                error: 'PDFファイルが必要です'
-            });
-        }
-
-        const userRules: UserRules = JSON.parse(req.body.userRules || '{}');
-        
-        if (!userRules.allowedAddresses) {
-            return res.status(400).json({
-                success: false,
-                error: 'ユーザールールが必要です'
-            });
-        }
-
-        const input = {
-            type: 'pdf' as const,
-            path: req.file.path
-        };
-
-        const result = await paymentSystem.processPayment(input, userRules);
-        
-        res.json({
-            success: true,
-            data: result
-        });
-    } catch (error) {
-        console.error('PDF支払い処理エラー:', error);
         res.status(500).json({
             success: false,
             error: error.message
