@@ -23,6 +23,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@types/ws": "^8.18.1",
     "circomlib": "^2.0.5",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
@@ -33,7 +34,8 @@
     "pdf2pic": "^2.1.4",
     "snarkjs": "^0.7.3",
     "sqlite3": "^5.1.6",
-    "viem": "^1.19.9"
+    "viem": "^1.19.9",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
