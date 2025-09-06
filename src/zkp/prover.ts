@@ -72,8 +72,8 @@ export class ZKPProver {
                 allowedAddress2: addressToNumber(userRules.allowedAddresses[1] || '0x0'),
                 allowedAddress3: addressToNumber(userRules.allowedAddresses[2] || '0x0'),
                 maxAmount: userRules.maxAmount,
-                minHour: userRules.allowedHours[0],
-                maxHour: userRules.allowedHours[1]
+                minHour: userRules.allowedHours[0] || 0,
+                maxHour: userRules.allowedHours[1] || 23
             };
 
             console.log('入力データ:', input);
@@ -112,7 +112,7 @@ export class ZKPProver {
         
         // 時間チェック（ローカル時間を使用）
         const paymentHour = new Date().getHours();
-        const timeValid = paymentHour >= userRules.allowedHours[0] && paymentHour <= userRules.allowedHours[1];
+        const timeValid = paymentHour >= (userRules.allowedHours[0] || 0) && paymentHour <= (userRules.allowedHours[1] || 23);
         
         const isValid = addressValid && amountValid && timeValid;
         

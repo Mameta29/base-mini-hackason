@@ -5,7 +5,7 @@
 export interface UserRules {
   allowedAddresses: string[];
   maxAmount: number;
-  allowedHours: [number, number]; // [start, end]
+  allowedHours: number[]; // [start, end] - flexible array type
   version?: string;
 }
 

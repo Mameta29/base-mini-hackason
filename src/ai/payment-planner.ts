@@ -231,16 +231,16 @@ export class PaymentPlanner {
      * @param {Array} allowedHours - 許可時間帯 [開始時, 終了時]
      * @returns {number} 次の許可時間のタイムスタンプ
      */
-    getNextAllowedTime(allowedHours: [number, number]): number {
+    getNextAllowedTime(allowedHours: number[]): number {
         const now = new Date();
         const currentHour = now.getHours();
         
         // 今日の許可時間開始時刻
         const todayStart = new Date(now);
-        todayStart.setHours(allowedHours[0], 0, 0, 0);
-        
-        // 今日の許可時間がまだ来ていない場合
-        if (currentHour < allowedHours[0]) {
+        todayStart.setHours(allowedHours[0] || 0, 0, 0, 0);
+
+        // 現在時刻が許可時間前の場合
+        if (currentHour < (allowedHours[0] || 0)) {
             return Math.floor(todayStart.getTime() / 1000);
         }
         
