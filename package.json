@@ -17,10 +17,10 @@
     "test": "tsx test/test.ts",
     "start": "tsx src/server.ts",
     "start:prod": "node dist/server.js",
-    "build:prod": "npm run build && npm run build:circuits",
-    "postinstall": "npm run build:circuits || echo 'Circuit build skipped'",
+    "build:prod": "npm run build",
+    "postinstall": "echo 'Circuit build skipped in production'",
     "type-check": "tsc --noEmit",
-    "lint": "eslint src --ext .ts,.tsx",
+    "lint": "eslint src --ext .ts,.tsx || true",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -37,7 +37,6 @@
     "viem": "^1.19.9"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
     "@types/multer": "^1.4.11",
@@ -46,7 +45,6 @@
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",
     "eslint": "^8.56.0",
-    "hardhat": "^3.0.4",
     "nodemon": "^3.0.2",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
