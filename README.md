@@ -1,4 +1,4 @@
-# AI Control by ZK
+# Base vibe Hackason - AI Control by ZK
 
 🤖 **AIエージェントによる自動支払いをZKPで制御するPOCシステム**
 
