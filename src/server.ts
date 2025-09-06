@@ -97,12 +97,41 @@ const upload = multer({
 });
 
 // システム初期化
-const paymentSystem = new PaymentSystem();
+let paymentSystem: PaymentSystem;
 
-// ログコールバックを設定
-paymentSystem.setLogCallback((processId, phase, status, message, details) => {
-    logManager.sendLog(processId, phase, status, message, details);
-});
+try {
+    paymentSystem = new PaymentSystem();
+    
+    // ログコールバックを設定
+    paymentSystem.setLogCallback((processId, phase, status, message, details) => {
+        logManager.sendLog(processId, phase, status, message, details);
+    });
+    
+    console.log('✅ PaymentSystem初期化完了');
+} catch (error) {
+    console.error('❌ PaymentSystem初期化エラー:', error);
+    console.log('⚠️ 環境変数が設定されていない可能性があります');
+    
+    // ダミーのPaymentSystemを作成（最低限の機能）
+    paymentSystem = {
+        getSystemStatus: async () => ({
+            status: 'error',
+            message: '環境変数が設定されていません',
+            components: {
+                ai: { status: 'error', message: 'OPENAI_API_KEY が必要です' },
+                zkp: { status: 'error', message: 'ZKP回路の初期化に失敗しました' },
+                blockchain: { status: 'error', message: 'PRIVATE_KEY が必要です' },
+                database: { status: 'error', message: 'データベース初期化に失敗しました' }
+            }
+        }),
+        setLogCallback: () => {},
+        runDemo: async () => ({ success: false, error: '環境変数が設定されていません' }),
+        processPayment: async () => ({ success: false, error: '環境変数が設定されていません' }),
+        commitUserRules: async () => ({ success: false, error: '環境変数が設定されていません' }),
+        getPaymentHistory: async () => [],
+        db: null
+    } as any;
+}
 
 // SSEエンドポイント - リアルタイムログストリーム
 app.get('/api/logs/:processId', (req: Request, res: Response) => {
