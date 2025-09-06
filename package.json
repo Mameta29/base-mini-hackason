@@ -1,0 +1,63 @@
+{
+  "name": "ai-control-by-zk",
+  "version": "1.0.0",
+  "description": "AI Agent with ZKP-based Rule Compliance for Automated Payments",
+  "main": "src/server.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsc",
+    "build:circuits": "cd circuits && circom payment_rules.circom --r1cs --wasm --sym -o ../build -l ../node_modules",
+    "setup:ptau": "cd build && snarkjs powersoftau new bn128 12 pot12_0000.ptau && snarkjs powersoftau contribute pot12_0000.ptau pot12_0001.ptau --name='First contribution' -v && snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v",
+    "setup:zkey": "cd build && snarkjs groth16 setup payment_rules.r1cs pot12_final.ptau payment_rules_0000.zkey && snarkjs zkey contribute payment_rules_0000.zkey payment_rules_0001.zkey --name='First contribution' -v && snarkjs zkey export verificationkey payment_rules_0001.zkey verification_key.json",
+    "test": "tsx test/test.ts",
+    "start": "tsx src/server.ts",
+    "start:prod": "node dist/server.js",
+    "build:prod": "npm run build && npm run build:circuits",
+    "postinstall": "npm run build:circuits || echo 'Circuit build skipped'",
+    "type-check": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "multer": "^1.4.5-lts.1",
+    "node-cron": "^3.0.3",
+    "openai": "^4.24.1",
+    "pdf2pic": "^2.1.4",
+    "snarkjs": "^0.7.3",
+    "sqlite3": "^5.1.6",
+    "viem": "^1.19.9"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^6.1.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.10.6",
+    "@types/sqlite3": "^3.1.11",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0",
+    "eslint": "^8.56.0",
+    "hardhat": "^3.0.4",
+    "nodemon": "^3.0.2",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "keywords": [
+    "zkp",
+    "ai",
+    "blockchain",
+    "automated-payments",
+    "base-sepolia"
+  ],
+  "author": "",
+  "license": "MIT"
+}
