@@ -14,7 +14,6 @@
     "build:circuits": "cd circuits && circom payment_rules.circom --r1cs --wasm --sym -o ../build -l ../node_modules",
     "setup:ptau": "cd build && snarkjs powersoftau new bn128 12 pot12_0000.ptau && snarkjs powersoftau contribute pot12_0000.ptau pot12_0001.ptau --name='First contribution' -v && snarkjs powersoftau prepare phase2 pot12_0001.ptau pot12_final.ptau -v",
     "setup:zkey": "cd build && snarkjs groth16 setup payment_rules.r1cs pot12_final.ptau payment_rules_0000.zkey && snarkjs zkey contribute payment_rules_0000.zkey payment_rules_0001.zkey --name='First contribution' -v && snarkjs zkey export verificationkey payment_rules_0001.zkey verification_key.json",
-    "test": "tsx test/test.ts",
     "start": "tsx src/server.ts",
     "start:prod": "node dist/server.js",
     "build:prod": "npm run build",
